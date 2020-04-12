@@ -1,3 +1,9 @@
 # GTA-SAMP-MapConverter
-GTA - SAMP 0.3.7DL 地图转换工具
-## 此工具用于转换 GTA SA 单机地图到 SA-MP 0.3DL 联机
+GTA San Andreas Multiplayer(SA-MP 0.3 DL) Map Convertion Tools
+* Implements the correct version of quaternion to euler algorithm.
+* Auto parse gta.dat - the converter will parse all the IDE & IPL that defines in gta.dat file so you don't need to worry anyting.
+* OBJS and TOBJ support - GTA maps contains the OBJS (Normal Object) and TOBJ (Timed objects). those 2 type were support can be auto convert into AddSimpleModel and AddSimpleModelTimed for the SA-MP
+# Todo
+* PED Convertion support
+* Custom output code format support
+* GUI interface

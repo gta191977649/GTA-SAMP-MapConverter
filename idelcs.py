@@ -13,7 +13,7 @@ import os
 import subprocess
 
 
-pathPrefix = 'vcs2samp/'
+pathPrefix = 'vcs/'
 worldid = 696968
 basemodel = 19379
 
@@ -24,7 +24,6 @@ VICECITY_MOVE_Z = -5
 
 
 output_modelDef = ""
-output_enex = ""
 ideTable = []
 
 def findIdFromIdeTable(modelname):
@@ -80,7 +79,7 @@ def generateSimpleObjectCode(line):
     #切分格式 ID, ModelName, TextureName, ObjectCount, DrawDist, [DrawDist2, ...], Flags
     token = line.split(',')
     modelid = token[0]
-    dff = pathPrefix.strip()+"dff/"+token[1].strip().lower()
+    dff = pathPrefix.strip()+"dff/"+token[1].strip()
     #不要处理LOD
     if 'LOD' in dff:
         #print("Found lod on model {}, skip".format(dff))
@@ -88,7 +87,7 @@ def generateSimpleObjectCode(line):
     if 'lod' in dff:
         #print("Found lod on model {}, skip".format(dff))
         return
-    txd = pathPrefix.strip()+"txd/"+token[2].strip().lower()
+    txd = pathPrefix.strip()+"txd/"+token[2].strip()
     drawdistance = token[3]
     flags = token[4]
     ideTable.append({
@@ -106,8 +105,29 @@ def generateTimedObjectCode(line):
     #ID, ModelName, TextureName, ObjectCount, DrawDist, [DrawDist2, ...], Flags, TimeOn, TimeOff
     token = line.split(',')
     modelid = token[0].strip()
-    dff = pathPrefix.strip()+"dff/"+token[1].strip().lower()
-    txd = pathPrefix.strip()+"txd/"+token[2].strip().lower()
+    dff = pathPrefix.strip()+"dff/"+token[1].strip()
+    txd = pathPrefix.strip()+"txd/"+token[2].strip()
+    drawdistance = token[3].strip()
+    flags = token[4].strip()
+    timeon = token[6].strip()
+    timeoff = token[7].strip()
+    #(virtualworld, baseid, newid, dffname[], txdname[], timeon, timeoff)
+    ideTable.append({
+        "model": token[1],
+        "id": -id_start,
+        "drawdistance": drawdistance
+    })
+    output_modelDef += "AddSimpleModelTimed({}, {}, {}, \"{}.dff\", \"{}.txd\",{},{});".format(worldid,basemodel,-id_start,dff,txd,timeon,timeoff)+"\n"
+    id_start = id_start +1
+
+def generateTimedObjectCodeVC(line):
+
+    global id_start,output_modelDef
+    #ID, ModelName, TextureName, ObjectCount, DrawDist, [DrawDist2, ...], Flags, TimeOn, TimeOff
+    token = line.split(',')
+    modelid = token[0].strip()
+    dff = pathPrefix.strip()+"dff/"+token[1].strip()
+    txd = pathPrefix.strip()+"txd/"+token[2].strip()
     drawdistance = token[3].strip()
     flags = token[4].strip()
     timeon = token[5].strip()
@@ -121,7 +141,7 @@ def generateTimedObjectCode(line):
     output_modelDef += "AddSimpleModelTimed({}, {}, {}, \"{}.dff\", \"{}.txd\",{},{});".format(worldid,basemodel,-id_start,dff,txd,timeon,timeoff)+"\n"
     id_start = id_start +1
 
-def generateSAMPObjFromIpl(line,int=0):
+def generateSAMPObjFromIpl(line):
     global output_modelDef
     token = line.split(",")
     id = token[0]
@@ -130,7 +150,65 @@ def generateSAMPObjFromIpl(line,int=0):
     if 'LOD' in modelName: return
     if 'lod' in modelName: return
     #print(modelName)
-    #int = token[2]
+    int = token[2]
+    x = token[3]
+    y = token[4]
+    z = token[5]
+    qx = float(token[6])
+    qy = float(token[7])
+    qz = float(token[8])
+    qw = float(token[9])
+    #转换四元数到欧拉坐标系
+    #print(qx,qy,qz,qw)
+    modelid = findIdFromIdeTable(modelName)
+    if modelid != -1:
+        rx, ry,rz = quaternionToYawPitchRoll2(modelName,qw,qx,qy,qz)
+        dw = findDrawDistanceFromIdeTable(modelName)
+        output_modelDef += "CreateDynamicObject({},{},{},{},{},{},{},{},{},{},{},{});\n".format(modelid,float(x)+VICECITY_MOVE_X,y,float(z)+VICECITY_MOVE_Z,rx,ry,rz,worldid,int,-1,1000,1000)
+    #CreateDynamicObject(modelid, Float:x, Float:y, Float:z, Float:rx, Float:ry, Float:rz, worldid = -1, interiorid = -1, playerid = -1, Float:streamdistance = STREAMER_OBJECT_SD, Float:drawdistance = STREAMER_OBJECT_DD, areaid = -1, priority = 0)
+    #output_modelDef+= "CreateDynamicObject({},{},{},{},{},{},{})".format()
+
+def generateSAMPObjFromIplVC(line):
+    # Use Vice city IPL format
+    # ID, ModelName, Interior, PosX, PosY, PosZ, ScaleX, ScaleY, ScaleZ, RotX, RotY, RotZ, RotW
+    global output_modelDef
+    token = line.split(",")
+    id = token[0]
+    modelName = token[1]
+
+    if 'LOD' in modelName: return
+    if 'lod' in modelName: return
+    #print(modelName)
+    int = token[2]
+    x = token[3]
+    y = token[4]
+    z = token[5]
+    sx = token[6]
+    sy = token[7]
+    sz = token[8]
+    qx = float(token[9])
+    qy = float(token[10])
+    qz = float(token[11])
+    qw = float(token[12])
+    #转换四元数到欧拉坐标系
+    #print(qx,qy,qz,qw)
+    modelid = findIdFromIdeTable(modelName)
+    if modelid != -1:
+        rx, ry,rz = quaternionToYawPitchRoll2(modelName,qw,qx,qy,qz)
+        dw = findDrawDistanceFromIdeTable(modelName)
+        output_modelDef += "CreateDynamicObject({},{},{},{},{},{},{},{},{},{},{},{});\n".format(modelid,float(x)+VICECITY_MOVE_X,y,float(z)+VICECITY_MOVE_Z,rx,ry,rz,worldid,int,-1,1000,1000)
+    #CreateDynamicObject(modelid, Float:x, Float:y, Float:z, Float:rx, Float:ry, Float:rz, worldid = -1, interiorid = -1, playerid = -1, Float:streamdistance = STREAMER_OBJECT_SD, Float:drawdistance = STREAMER_OBJECT_DD, areaid = -1, priority = 0)
+    #output_modelDef+= "CreateDynamicObject({},{},{},{},{},{},{})".format()
+def generateSAMPObjFromIpl(line):
+    global output_modelDef
+    token = line.split(",")
+    id = token[0]
+    modelName = token[1]
+
+    if 'LOD' in modelName: return
+    if 'lod' in modelName: return
+    #print(modelName)
+    int = token[2]
     x = token[3]
     y = token[4]
     z = token[5]
@@ -186,48 +264,13 @@ def parseIde(pathIde):
                 generateTimedObjectCode(line)
 
 
-def generateEnexObjFromIpl(line):
-    global output_enex
-    #enex_array[ints][enx],enex_array[ints][eny],enex_array[ints][enz],enex_array[ints][exx],enex_array[ints][exy],enex_array[ints][exz],enex_array[ints][exa],enex_array[ints][exi],enex_array[ints][lead],enex_array[ints][rname]
-    tk = line.split(",")
-    x1 = float(tk[0].strip())
-    y1 = tk[1].strip()
-    z1 = tk[2].strip()
-    enter_a = tk[3].strip()
-    sx = tk[4].strip()
-    sy = tk[5].strip()
-    sz = tk[6].strip()
-    x2 = tk[7].strip()
-    y2 = tk[8].strip()
-    z2 = tk[9].strip()
-    exit_a = tk[10].strip()
-    interior = int(tk[11].strip())
-    flags = tk[12].strip()
-    name = tk[13].strip()
-    weather = tk[14].strip()
 
-    #round numbers
-    x1 = round(float(x1),3) + VICECITY_MOVE_X
-    y1 = round(float(y1),3)
-    z1 = round(float(z1),2) + VICECITY_MOVE_Z + 1
-    x2 = round(float(x2),3) + VICECITY_MOVE_X
-    y2 = round(float(y2),3)
-    z2 = round(float(z2),3) + VICECITY_MOVE_Z + 1
 
-    #SA-MP FIX
-    flags = 0
-    if interior > 0:
-        interior = 5
-        flags = 1
-
-    output_enex += "{} {} {} {} {} {} {} {} {} {}\n".format(x1,y1,z1,x2,y2,z2,enter_a,interior,flags,name)
-#处理IPL
 def parseIpl(pathIpl):
-    global output_modelDef,output_enex
+    global output_modelDef
     paseObjChunk = False
     f = open(pathIpl, "r")
     ipl = f.readlines()
-    mode = ""
     for line in ipl:
         if line == '\n': continue
         if "#" in line: continue
@@ -238,21 +281,10 @@ def parseIpl(pathIpl):
         if "inst" in line:
             output_modelDef += "//"+pathIpl+"\n"
             paseObjChunk = True
-            mode = "inst"
-            continue
-        if "enex" in line:
-            #output_enex += "// " + pathIpl + "\n"
-            paseObjChunk = True
-            mode = "enex"
             continue
         if paseObjChunk:
-            if mode == "inst":
-                if "shops.IPL" in pathIpl or  "stadium.IPL"  in pathIpl or "int.IPL" in pathIpl:
-                    generateSAMPObjFromIpl(line,5)
-                else:
-                    generateSAMPObjFromIpl(line, 0)
-            if mode == "enex":
-                generateEnexObjFromIpl(line)
+            generateSAMPObjFromIplVC(line)
+
 
 
 def extractIMG(imgpath,modelexportPath):
@@ -267,11 +299,11 @@ def main():
     #parseIde("D:/jmmaps/vcs2samp/vcs_map/oceandrv/oceandrv.IDE") #error on model od_clevelander_dy
 
 
-    gta_dat_dir = "D:/jmmaps/vcs2samp/vcs_map/"
-    modelexportPath = "D:/jmmaps/vcs2samp/img/"
+    gta_dat_dir = "D:/jmmaps/vcs2sa_v2/"
+    modelexportPath = "D:/jmmaps/vcs2sa_v2/"
 
 
-    f = open(gta_dat_dir+"gta_bak.dat","r")
+    f = open(gta_dat_dir+"gta_vc.dat","r")
     gtadat = f.readlines()
 
     #读取SA模型定义文件
@@ -284,11 +316,13 @@ def main():
             extractIMG(imgPath,modelexportPath)
         """
         if "IDE" in item:
+            print(item)
             token = item.split(" ")
             idePath = token[1]
             parseIde(gta_dat_dir+idePath.strip())
 
         if "IPL" in item:
+            print(item)
             token = item.split(" ")
             iplPath = token[1]
             parseIpl(gta_dat_dir+iplPath.strip())
@@ -299,5 +333,4 @@ def main():
     f.close()
 
     print("Convert Finish! {} Objects in totoal use slot from {} to {}".format(id_start-start,start,id_start))
-    print(output_enex)
 main()
